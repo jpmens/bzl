@@ -6,7 +6,7 @@
  * Usage: bzl http://127.0.0.1:8053/
  */
 
-#include <stdio.h> 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <libxml/parser.h>
