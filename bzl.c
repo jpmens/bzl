@@ -84,21 +84,8 @@ void dozone(xmlDocPtr doc, xmlChar *zone, xmlNodePtr cur, FILE *fp)
                 cur = cur->next; 
         } 
 
-        if (zone && serial) { 
-                char domain[BUFSIZ], *sp; 
+        fprintf(fp, "%s %s\n", serial, zone);
 
-                /* Replace all slashes in the zone name by spaces; 
-                 * in a configuration with views, the name contains 
-                 * "zone/IN/viewname"; without views "zone/IN". 
-                 */ 
-                strncpy(domain, zone, sizeof(domain) - 1); 
-                for (sp = domain; sp && *sp; sp++) { 
-                        if (*sp == '/') 
-                                *sp = ' '; 
-                } 
-
-                fprintf(fp, "%s %s\n", serial, domain); 
-        } 
 	if (zone)
 		xmlFree(zone);
 	if (serial)
