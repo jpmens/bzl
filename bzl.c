@@ -74,18 +74,13 @@ getnodeset(xmlDocPtr doc, xmlChar *xpath){
         return (result); 
 } 
 
-void dozone(xmlDocPtr doc, xmlNodePtr cur, FILE *fp) 
+void dozone(xmlDocPtr doc, xmlChar *zone, xmlNodePtr cur, FILE *fp)
 { 
-        char *zone = NULL, *serial = NULL; 
+        char *serial = NULL;
 
         while (cur != NULL) { 
-
-                if (!strcmp(cur->name, "name")) { 
-                        zone = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1); 
-                } else if (!strcmp(cur->name, "serial")) { 
+                if (!strcmp(cur->name, "serial"))
                         serial = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1); 
-                } 
-
                 cur = cur->next; 
         } 
 
@@ -115,11 +110,10 @@ int main(int argc, char **argv)
 
         char *url; 
         xmlDocPtr doc; 
-        xmlChar *xpath = (xmlChar *)"/isc/bind/statistics/views/view/zones/zone"; 
+        xmlChar *xpath = (xmlChar *)"/statistics/views/view/zones/zone";
         xmlNodeSetPtr nodeset; 
         xmlXPathObjectPtr result; 
         int i; 
-        xmlChar *keyword; 
 
         if (argc != 2) { 
                 printf("Usage: %s URL\n", argv[0]); 
@@ -132,11 +126,12 @@ int main(int argc, char **argv)
         if (result) { 
                 nodeset = result->nodesetval; 
                 for (i=0; i < nodeset->nodeNr; i++) { 
-
                         xmlNodePtr cur; 
+                        xmlChar *name;
                         cur = nodeset->nodeTab[i]; 
-
-                        dozone(doc, cur->xmlChildrenNode, stdout); 
+                        name = xmlGetProp(cur, "name");
+                        if (name != NULL)
+                                dozone(doc, name, cur->xmlChildrenNode, stdout);
                 } 
                 xmlXPathFreeObject (result); 
         } 
