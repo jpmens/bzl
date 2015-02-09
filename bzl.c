@@ -42,10 +42,43 @@ char *http_fetch(const char *url)
         return buf;
 }
 
+char *stdin_fetch(void)
+{
+	char *buf = NULL;
+	size_t size = 1024;
+	size_t point = 0;
+	size_t n;
+
+	do {
+		size = size * 2;
+		buf = realloc(buf, size);
+		if (buf == NULL) {
+			fprintf(stderr, "bzl: malloc: %s\n", strerror(errno));
+			return NULL; // space leak
+		}
+		do {
+			n = fread(buf + point, 1, size - point, stdin);
+			point += n;
+		} while (point < size && n > 0);
+	} while (n > 0);
+	if (ferror(stdin)) {
+		fprintf(stderr, "bzl: read stdin: %s\n", strerror(errno));
+		free(buf);
+		return NULL;
+	}
+	return (buf);
+}
+
 xmlDocPtr fetchdoc(char *url)
 {
-        char *buf = http_fetch(url);
+        char *buf;
         xmlDocPtr doc;
+
+	if (strcmp(url, "-")) {
+		buf = http_fetch(url);
+	} else {
+		buf = stdin_fetch();
+	}
 
         if (buf == NULL)
                 return (NULL);
