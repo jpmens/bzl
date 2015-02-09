@@ -42,10 +42,43 @@ char *http_fetch(const char *url)
         return buf;
 }
 
+char *stdin_fetch(void)
+{
+	char *buf = NULL;
+	size_t size = 1024;
+	size_t point = 0;
+	size_t n;
+
+	do {
+		size = size * 2;
+		buf = realloc(buf, size);
+		if (buf == NULL) {
+			fprintf(stderr, "bzl: malloc: %s\n", strerror(errno));
+			return NULL; // space leak
+		}
+		do {
+			n = fread(buf + point, 1, size - point, stdin);
+			point += n;
+		} while (point < size && n > 0);
+	} while (n > 0);
+	if (ferror(stdin)) {
+		fprintf(stderr, "bzl: read stdin: %s\n", strerror(errno));
+		free(buf);
+		return NULL;
+	}
+	return (buf);
+}
+
 xmlDocPtr fetchdoc(char *url)
 {
-        char *buf = http_fetch(url);
+        char *buf;
         xmlDocPtr doc;
+
+	if (strcmp(url, "-")) {
+		buf = http_fetch(url);
+	} else {
+		buf = stdin_fetch();
+	}
 
         if (buf == NULL)
                 return (NULL);
@@ -66,8 +99,7 @@ getnodeset(xmlDocPtr doc, xmlChar *xpath){
 
         context = xmlXPathNewContext(doc);
         result = xmlXPathEvalExpression(xpath, context);
-        if (xmlXPathNodeSetIsEmpty(result->nodesetval)){
-                printf("No result\n");
+        if (xmlXPathNodeSetIsEmpty(result->nodesetval)) {
                 return NULL;
         }
         xmlXPathFreeContext(context);
@@ -79,12 +111,15 @@ void dozone(xmlDocPtr doc, xmlChar *zone, xmlNodePtr cur, FILE *fp)
         char *serial = NULL;
 
         while (cur != NULL) {
-                if (!strcmp(cur->name, "serial"))
+                if (!strcmp(cur->name, "name"))
+                        zone = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+		else if (!strcmp(cur->name, "serial"))
                         serial = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
                 cur = cur->next;
         }
 
-        fprintf(fp, "%s %s\n", serial, zone);
+	if (zone)
+		fprintf(fp, "%s %s\n", serial, zone);
 
 	if (zone)
 		xmlFree(zone);
@@ -97,10 +132,13 @@ int main(int argc, char **argv)
 
         char *url;
         xmlDocPtr doc;
-        xmlChar *xpath = (xmlChar *)"/statistics/views/view/zones/zone";
+        xmlChar *xpath[] = {
+		(xmlChar *)"/isc/bind/statistics/views/view/zones/zone",
+		(xmlChar *)"/statistics/views/view/zones/zone",
+	};
         xmlNodeSetPtr nodeset;
         xmlXPathObjectPtr result;
-        int i;
+        int new, i;
 
         if (argc != 2) {
                 printf("Usage: %s URL\n", argv[0]);
@@ -109,19 +147,24 @@ int main(int argc, char **argv)
 
         url = argv[1];
         doc = fetchdoc(url);
-        result = getnodeset (doc, xpath);
+	for (new = 1; new >= 0; new--) {
+		result = getnodeset (doc, xpath[new]);
+		if (result)
+			break;
+	}
         if (result) {
                 nodeset = result->nodesetval;
                 for (i=0; i < nodeset->nodeNr; i++) {
                         xmlNodePtr cur;
                         xmlChar *name;
                         cur = nodeset->nodeTab[i];
-                        name = xmlGetProp(cur, "name");
-                        if (name != NULL)
-                                dozone(doc, name, cur->xmlChildrenNode, stdout);
+			name = new ? xmlGetProp(cur, "name") : NULL;
+			dozone(doc, name, cur->xmlChildrenNode, stdout);
                 }
                 xmlXPathFreeObject (result);
-        }
+        } else {
+                printf("No result\n");
+	}
         xmlFreeDoc(doc);
         xmlCleanupParser();
         return (0);
