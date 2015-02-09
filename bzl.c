@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include <libxml/nanohttp.h>
